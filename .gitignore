@@ -1,0 +1,45 @@
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editors and local workspaces
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Node-RED runtime and local state (never commit credentials)
+.node-red/
+flows_cred.json
+flows_*_cred.json
+.config.runtime.json
+.config.nodes.json
+.config.users.json
+settings.js
+node_modules/
+
+# Local secrets and environment settings
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+
+# Logs and temporary files
+*.log
+logs/
+tmp/
+temp/
+*.bak
+*.tmp
+
+# Local exports / archives
+*.zip
+*.tar.gz
+
+# Keep intentional, reusable Node-RED flow JSON files tracked.
