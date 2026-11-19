@@ -1,0 +1,185 @@
+[
+    {
+        "id": "al15_tab_v2",
+        "type": "tab",
+        "label": "AL15 Web Console",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "get_console_v2",
+        "type": "http in",
+        "z": "al15_tab_v2",
+        "name": "GET /console",
+        "url": "/console",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 140,
+        "y": 100,
+        "wires": [
+            [
+                "html_console_v2"
+            ]
+        ]
+    },
+    {
+        "id": "html_console_v2",
+        "type": "template",
+        "z": "al15_tab_v2",
+        "name": "AL15 Console HTML",
+        "field": "payload",
+        "fieldType": "msg",
+        "format": "html",
+        "syntax": "mustache",
+        "template": "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"UTF-8\">\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<title>AL15 Engineering Console</title>\n<style>\n*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;background:#101010;color:#eee;font-family:Consolas,'Courier New',monospace}body{display:flex;flex-direction:column}header{padding:14px 20px;background:#181818;border-bottom:1px solid #333}.title{color:#00ff88;font-size:18px;font-weight:bold}.subtitle{color:#777;font-size:12px;margin-top:5px}#terminal{flex:1;padding:20px;overflow-y:auto;white-space:pre-wrap;line-height:1.45;font-size:14px}.command-area{display:flex;padding:14px 20px;border-top:1px solid #333;background:#151515}.prompt{color:#00ff88;font-weight:bold;margin-right:10px}#commandInput{flex:1;border:0;outline:0;background:transparent;color:white;font-family:inherit;font-size:14px}.error{color:#ff5555}.status{color:#888}\n</style>\n</head>\n<body>\n<header><div class=\"title\">AL15 Engineering Console</div><div class=\"subtitle\">Node-RED local shell</div></header>\n<div id=\"terminal\">AL15 Console ready.</div>\n<div class=\"command-area\"><span class=\"prompt\">AL15:~$</span><input id=\"commandInput\" autocomplete=\"off\" spellcheck=\"false\" autofocus></div>\n<script>\nconst input=document.getElementById('commandInput');\nconst terminal=document.getElementById('terminal');\nlet history=[];let pos=0;\nfunction line(text,cls){const e=document.createElement('div');if(cls)e.className=cls;e.textContent=text;terminal.appendChild(e);terminal.scrollTop=terminal.scrollHeight;}\nasync function run(cmd){\n if(cmd==='clear'){terminal.innerHTML='';return;}\n line('AL15:~$ '+cmd);\n try{\n  const r=await fetch('/console/exec',{method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8'},body:cmd});\n  const text=await r.text();\n  if(text)line(text,r.ok?'':'error');\n  if(!text)line('[completed]','status');\n }catch(e){line('ERROR: '+e.message,'error');}\n}\ninput.addEventListener('keydown',e=>{\n if(e.key==='Enter'){e.preventDefault();const c=input.value.trim();if(!c)return;history.push(c);pos=history.length;input.value='';run(c);}\n else if(e.key==='ArrowUp'){e.preventDefault();if(history.length){if(pos>0)pos--;input.value=history[pos]||'';}}\n else if(e.key==='ArrowDown'){e.preventDefault();if(pos<history.length-1){pos++;input.value=history[pos];}else{pos=history.length;input.value='';}}\n});\ndocument.addEventListener('click',()=>input.focus());\n</script>\n</body>\n</html>",
+        "output": "str",
+        "x": 380,
+        "y": 100,
+        "wires": [
+            [
+                "html_headers_v2"
+            ]
+        ]
+    },
+    {
+        "id": "html_headers_v2",
+        "type": "function",
+        "z": "al15_tab_v2",
+        "name": "HTML Headers",
+        "func": "msg.headers = {'Content-Type':'text/html; charset=utf-8'};\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 590,
+        "y": 100,
+        "wires": [
+            [
+                "serve_console_v2"
+            ]
+        ]
+    },
+    {
+        "id": "serve_console_v2",
+        "type": "http response",
+        "z": "al15_tab_v2",
+        "name": "Serve Console",
+        "statusCode": "",
+        "headers": {},
+        "x": 810,
+        "y": 100,
+        "wires": []
+    },
+    {
+        "id": "post_exec_v2",
+        "type": "http in",
+        "z": "al15_tab_v2",
+        "name": "POST /console/exec",
+        "url": "/console/exec",
+        "method": "post",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 150,
+        "y": 260,
+        "wires": [
+            [
+                "prepare_v2"
+            ]
+        ]
+    },
+    {
+        "id": "prepare_v2",
+        "type": "function",
+        "z": "al15_tab_v2",
+        "name": "Prepare command",
+        "func": "let command = msg.payload;\nif (Buffer.isBuffer(command)) command = command.toString('utf8');\ncommand = String(command || '').trim();\nif (!command) {\n    msg.statusCode = 400;\n    msg.payload = 'Empty command';\n    return [null,msg];\n}\n\n// Preserve HTTP request/response so we can answer later\nconst id = Date.now().toString() + Math.random().toString(16).slice(2);\nflow.set('cmd_' + id, {\n    req: msg.req,\n    res: msg.res,\n    stdout: '',\n    stderr: ''\n});\n\nmsg._cmdId = id;\nmsg.payload = command;\nreturn [msg,null];",
+        "outputs": 2,
+        "x": 390,
+        "y": 260,
+        "wires": [
+            [
+                "exec_v2"
+            ],
+            [
+                "response_v2"
+            ]
+        ]
+    },
+    {
+        "id": "exec_v2",
+        "type": "exec",
+        "z": "al15_tab_v2",
+        "command": "",
+        "addpay": "payload",
+        "append": "",
+        "useSpawn": "false",
+        "timer": "30",
+        "winHide": false,
+        "oldrc": false,
+        "name": "Execute command",
+        "x": 630,
+        "y": 260,
+        "wires": [
+            [
+                "save_stdout_v2"
+            ],
+            [
+                "save_stderr_v2"
+            ],
+            [
+                "finish_v2"
+            ]
+        ]
+    },
+    {
+        "id": "save_stdout_v2",
+        "type": "function",
+        "z": "al15_tab_v2",
+        "name": "Collect stdout",
+        "func": "const id = msg._cmdId;\nconst data = flow.get('cmd_' + id);\nif (data) {\n    data.stdout += String(msg.payload || '');\n    flow.set('cmd_' + id, data);\n}\nreturn null;",
+        "outputs": 0,
+        "x": 860,
+        "y": 210,
+        "wires": []
+    },
+    {
+        "id": "save_stderr_v2",
+        "type": "function",
+        "z": "al15_tab_v2",
+        "name": "Collect stderr",
+        "func": "const id = msg._cmdId;\nconst data = flow.get('cmd_' + id);\nif (data) {\n    data.stderr += String(msg.payload || '');\n    flow.set('cmd_' + id, data);\n}\nreturn null;",
+        "outputs": 0,
+        "x": 870,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "finish_v2",
+        "type": "function",
+        "z": "al15_tab_v2",
+        "name": "Build ONE response",
+        "func": "const id = msg._cmdId;\nconst data = flow.get('cmd_' + id);\n\nif (!data) {\n    return null;\n}\n\nflow.set('cmd_' + id, undefined);\n\nmsg.req = data.req;\nmsg.res = data.res;\n\nlet output = '';\n\nif (data.stdout) output += data.stdout;\nif (data.stderr) {\n    if (output && !output.endsWith('\\n')) output += '\\n';\n    output += data.stderr;\n}\n\nmsg.payload = output;\nmsg.headers = {'Content-Type':'text/plain; charset=utf-8'};\n\nlet rc = 0;\nif (msg.payload && typeof msg.payload === 'object' && msg.payload.code !== undefined) {\n    rc = msg.payload.code;\n}\n\nmsg.statusCode = 200;\nreturn msg;",
+        "outputs": 1,
+        "x": 880,
+        "y": 320,
+        "wires": [
+            [
+                "response_v2"
+            ]
+        ]
+    },
+    {
+        "id": "response_v2",
+        "type": "http response",
+        "z": "al15_tab_v2",
+        "name": "ONE HTTP Response",
+        "statusCode": "",
+        "headers": {},
+        "x": 1120,
+        "y": 240,
+        "wires": []
+    }
+]
